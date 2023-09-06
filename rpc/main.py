@@ -143,13 +143,20 @@ class RPC:
         ).one_or_none()
     
     @rpc('get_by_uid')
-    def get_by_uid(self, integration_uid: int, project_id: Optional[int] = None) -> Optional[IntegrationProject]:
+    def get_by_uid(
+            self, integration_uid: str, 
+            project_id: Optional[int] = None,
+            check_all_projects: bool = True
+            ) -> Optional[IntegrationProject]:
         """
         Get integration by unique id. You can specify current project_id but not necessary.
         :param integration_uid: uid of integration
         :param project_id: id of current project
+        :param check_all_projects: True - if we want to search in all projects
         :return: integration ORM object or None
-        """   
+        """ 
+        if not isinstance(integration_uid, str):
+              integration_uid = str(integration_uid)
         if project_id is not None:
             with db.with_project_schema_session(project_id) as tenant_session:
                 if integration := tenant_session.query(IntegrationProject).filter(
@@ -160,13 +167,14 @@ class RPC:
             IntegrationAdmin.uid == integration_uid,
         ).one_or_none():
             return integration
-        projects = self.context.rpc_manager.call.project_list()
-        for project in projects:
-            with db.with_project_schema_session(project['id']) as tenant_session:
-                if integration := tenant_session.query(IntegrationProject).filter(
-                    IntegrationProject.uid == integration_uid,
-                ).one_or_none():
-                    return integration
+        if check_all_projects:
+            projects = self.context.rpc_manager.call.project_list()
+            for project in projects:
+                with db.with_project_schema_session(project['id']) as tenant_session:
+                    if integration := tenant_session.query(IntegrationProject).filter(
+                        IntegrationProject.uid == integration_uid,
+                    ).one_or_none():
+                        return integration
 
     @web.rpc('security_test_create_integrations')
     @rpc_tools.wrap_exceptions(ValidationError)
