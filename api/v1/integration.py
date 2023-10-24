@@ -10,6 +10,31 @@ from ...models.pd.integration import IntegrationPD
 
 class ProjectAPI(api_tools.APIModeHandler):
     @auth.decorators.check_api({
+        "permissions": ["configuration.integrations.integration.details"],
+        "recommended_roles": {
+            "administration": {"admin": True, "viewer": True, "editor": True},
+            "default": {"admin": True, "viewer": True, "editor": True},
+            "developer": {"admin": False, "viewer": False, "editor": False},
+        }})
+    def get(self, project_id: int, integration_uid: int, **kwargs):
+        integration = self.module.get_by_uid(
+            integration_uid=integration_uid,
+            project_id=project_id,
+            check_all_projects=False
+        )
+        if not integration:
+            integration = self.module.get_by_uid(
+                integration_id=integration_uid,
+            )
+            if not integration:
+                return None, 404
+        return IntegrationPD.from_orm(integration).dict(), 200
+        # try:
+        #     settings = integration.settings_model.parse_obj(request.json)
+        # except ValidationError as e:
+        #     return e.errors(), 400
+
+    @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.create"],
         "recommended_roles": {
             "administration": {"admin": True, "viewer": False, "editor": True},
@@ -43,7 +68,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             try:
                 return IntegrationPD.from_orm(db_integration).dict(), 200
             except ValidationError as e:
-                return e.errors(), 400            
+                return e.errors(), 400
 
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.edit"],
@@ -108,7 +133,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             "administration": {"admin": True, "viewer": False, "editor": False},
             "default": {"admin": True, "viewer": False, "editor": False},
             "developer": {"admin": False, "viewer": False, "editor": False},
-        }})    
+        }})
     def delete(self, project_id: int, integration_id: int):
         with db.with_project_schema_session(project_id) as tenant_session:
             db_integration = tenant_session.query(IntegrationProject).filter(
@@ -121,6 +146,21 @@ class ProjectAPI(api_tools.APIModeHandler):
 
 
 class AdminAPI(api_tools.APIModeHandler):
+    @auth.decorators.check_api({
+        "permissions": ["configuration.integrations.integration.details"],
+        "recommended_roles": {
+            "administration": {"admin": True, "viewer": True, "editor": True},
+            "default": {"admin": True, "viewer": True, "editor": True},
+            "developer": {"admin": False, "viewer": False, "editor": False},
+        }})
+    def get(self, project_id: int, integration_uid: int, **kwargs):
+        integration = self.module.get_by_uid(
+            integration_uid=integration_uid,
+        )
+        if not integration:
+            return None, 404
+        return IntegrationPD.from_orm(integration).dict(), 200
+
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.create"],
         "recommended_roles": {
@@ -197,20 +237,26 @@ class AdminAPI(api_tools.APIModeHandler):
             "administration": {"admin": True, "viewer": False, "editor": False},
             "default": {"admin": True, "viewer": False, "editor": False},
             "developer": {"admin": False, "viewer": False, "editor": False},
-        }})    
+        }})
     def delete(self, integration_id: int, **kwargs):
         IntegrationAdmin.query.filter(IntegrationAdmin.id == integration_id).delete()
         IntegrationAdmin.commit()
         return integration_id, 204
 
+
 class API(api_tools.APIBase):
     url_params = [
         '<string:integration_name>',
         '<string:mode>/<string:integration_name>',
+
         '<int:integration_id>',
         '<string:mode>/<int:integration_id>',
+
         '<int:project_id>/<int:integration_id>',
         '<string:mode>/<int:project_id>/<int:integration_id>',
+
+        '<int:project_id>/<string:integration_uid>',
+        '<string:mode>/<int:project_id>/<string:integration_uid>',
     ]
 
     mode_handlers = {
