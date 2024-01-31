@@ -23,9 +23,13 @@ class API(api_tools.APIBase):
         'administration': AdminAPI,
     }
 
-    @auth.decorators.check_api(["configuration.integrations.integrations.create",
-                                "configuration.integrations.integrations.edit"
-                                ])
+    @auth.decorators.check_api(
+        [
+            "configuration.integrations.integrations.create",
+            "configuration.integrations.integrations.edit"
+        ],
+        project_id_in_request_json=True
+    )
     def post(self, integration_name: str, **kwargs):
         integration = self.module.get_by_name(integration_name)
         payload = request.json
@@ -38,7 +42,7 @@ class API(api_tools.APIBase):
             return e.errors(), 400
 
         project_id = payload.get('project_id')
-        project_id = int(project_id) if project_id else project_id 
+        project_id = int(project_id) if project_id else project_id
         check_connection_response = settings.check_connection(project_id)
         if not request.json.get('save_action'):
             if check_connection_response is True:

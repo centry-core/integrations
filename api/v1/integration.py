@@ -34,13 +34,17 @@ class ProjectAPI(api_tools.APIModeHandler):
         # except ValidationError as e:
         #     return e.errors(), 400
 
-    @auth.decorators.check_api({
-        "permissions": ["configuration.integrations.integrations.create"],
-        "recommended_roles": {
-            "administration": {"admin": True, "viewer": False, "editor": True},
-            "default": {"admin": True, "viewer": False, "editor": True},
-            "developer": {"admin": False, "viewer": False, "editor": False},
-        }})
+    @auth.decorators.check_api(
+        {
+            "permissions": ["configuration.integrations.integrations.create"],
+            "recommended_roles": {
+                "administration": {"admin": True, "viewer": False, "editor": True},
+                "default": {"admin": True, "viewer": False, "editor": True},
+                "developer": {"admin": False, "viewer": False, "editor": False},
+            }
+        },
+        project_id_in_request_json=True
+    )
     def post(self, integration_name: str):
         project_id = request.json.get('project_id')
         if not project_id:
@@ -70,13 +74,17 @@ class ProjectAPI(api_tools.APIModeHandler):
             except ValidationError as e:
                 return e.errors(), 400
 
-    @auth.decorators.check_api({
-        "permissions": ["configuration.integrations.integrations.edit"],
-        "recommended_roles": {
-            "administration": {"admin": True, "viewer": False, "editor": True},
-            "default": {"admin": True, "viewer": False, "editor": True},
-            "developer": {"admin": False, "viewer": False, "editor": False},
-        }})
+    @auth.decorators.check_api(
+        {
+            "permissions": ["configuration.integrations.integrations.edit"],
+            "recommended_roles": {
+                "administration": {"admin": True, "viewer": False, "editor": True},
+                "default": {"admin": True, "viewer": False, "editor": True},
+                "developer": {"admin": False, "viewer": False, "editor": False},
+            }
+        },
+        project_id_in_request_json=True
+    )
     def put(self, integration_id: int):
         project_id = request.json.get('project_id')
         if not project_id:
