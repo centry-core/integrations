@@ -28,15 +28,18 @@ class API(api_tools.APIBase):
                                 ])
     def post(self, integration_name: str, **kwargs):
         integration = self.module.get_by_name(integration_name)
+        payload = request.json
         if not integration:
             return {'error': 'integration not found'}, 404
         try:
-            settings = integration.settings_model.parse_obj(request.json)
+            settings = integration.settings_model.parse_obj(payload)
         except ValidationError as e:
             # return e.json(), 400
             return e.errors(), 400
 
-        check_connection_response = settings.check_connection()
+        project_id = payload.get('project_id')
+        project_id = int(project_id) if project_id else project_id 
+        check_connection_response = settings.check_connection(project_id)
         if not request.json.get('save_action'):
             if check_connection_response is True:
                 return 'OK', 200
