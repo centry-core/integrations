@@ -474,16 +474,12 @@ class RPC:
 
     @rpc('get_sorted_paginated_integrations_by_section')
     def get_sorted_paginated_integrations_by_section(self, section_name: str, project_id: int, sort_order: str,
-                                                     sort_field: str, page: int, per_page: int):
+                                                     sort_by: str, offset: int, limit: int):
         results_project = self.get_project_integrations_by_section(project_id, section_name)
         results_admin = self.get_administration_integrations_by_section(section_name, True)
         results = parse_obj_as(List[IntegrationPD], results_project + results_admin)
         descending = sort_order.lower() == 'desc'
-        sorted_list = sorted(results, key=lambda x: getattr(x, sort_field), reverse=descending)
-        if page is None or page < 1:
-            return sorted_list
-        offset = (page - 1) * per_page
-        limit = offset + per_page
+        sorted_list = sorted(results, key=lambda x: getattr(x, sort_by), reverse=descending)
         return sorted_list[offset:limit]
 
     @rpc('update_attrs')
