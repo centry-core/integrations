@@ -48,6 +48,28 @@ class AdminAPI(api_tools.APIModeHandler):
         ], 200
 
 
+class PromptLibAPI(api_tools.APIModeHandler):
+    AI_SECTION: str = 'ai'
+
+    @auth.decorators.check_api({
+        "permissions": ["configuration.integrations.integrations.view"],
+        "recommended_roles": {
+            "administration": {"admin": True, "viewer": True, "editor": True},
+            "default": {"admin": True, "viewer": True, "editor": True},
+            "developer": {"admin": True, "viewer": False, "editor": False},
+        }})
+    def get(self, project_id: int):
+        sort_order = request.args.get('sort_order', 'asc')
+        sort_by = request.args.get('sort_by', 'name')
+        offset = int(request.args.get('offset', 0))
+        limit = int(request.args.get('limit', 10_000))
+        return [
+            i.dict() for i in self.module.get_sorted_paginated_integrations_by_section(
+                self.AI_SECTION, project_id, sort_order, sort_by, offset, limit
+            )
+        ], 200
+
+
 class API(api_tools.APIBase):
     url_params = [
         '<int:project_id>',
@@ -59,4 +81,5 @@ class API(api_tools.APIBase):
     mode_handlers = {
         'default': ProjectAPI,
         'administration': AdminAPI,
+        'prompt_lib': PromptLibAPI,
     }

@@ -472,6 +472,16 @@ class RPC:
         results_admin = self.get_administration_integrations_by_section(section_name, True)
         return self.process_default_integrations(project_id, results_project + results_admin)
 
+    @rpc('get_sorted_paginated_integrations_by_section')
+    def get_sorted_paginated_integrations_by_section(self, section_name: str, project_id: int, sort_order: str,
+                                                     sort_by: str, offset: int, limit: int):
+        results_project = self.get_project_integrations_by_section(project_id, section_name)
+        results_admin = self.get_administration_integrations_by_section(section_name, True)
+        results = parse_obj_as(List[IntegrationPD], results_project + results_admin)
+        descending = sort_order.lower() == 'desc'
+        sorted_list = sorted(results, key=lambda x: getattr(x, sort_by), reverse=descending)
+        return sorted_list[offset:limit]
+
     @rpc('update_attrs')
     def update_attrs(self, 
             integration_id: int, 
