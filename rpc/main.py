@@ -44,6 +44,10 @@ class RPC:
     def list_integrations(self) -> dict:
         return self.integrations
 
+    @rpc('list_integrations_by_section')
+    def list_integrations_by_section(self, section: str) -> list:
+        return [k for k, v in self.integrations.items() if v.section == section]
+
     @rpc('get_project_integrations')
     def get_project_integrations(self, project_id: int, group_by_section: bool = True) -> dict:
         with db.with_project_schema_session(project_id) as tenant_session:
