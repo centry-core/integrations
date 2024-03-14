@@ -165,6 +165,7 @@ class RPC:
                 if integration := tenant_session.query(IntegrationProject).filter(
                     IntegrationProject.uid == integration_uid,
                 ).one_or_none():
+                    integration.project_id = project_id
                     return integration
         if integration := IntegrationAdmin.query.filter(
             IntegrationAdmin.uid == integration_uid,
@@ -177,6 +178,7 @@ class RPC:
                     if integration := tenant_session.query(IntegrationProject).filter(
                         IntegrationProject.uid == integration_uid,
                     ).one_or_none():
+                        integration.project_id = project['id']
                         return integration
 
     @web.rpc('security_test_create_integrations')
