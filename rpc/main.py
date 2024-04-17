@@ -141,10 +141,11 @@ class RPC:
             with db.with_project_schema_session(project_id) as tenant_session:
                 return tenant_session.query(IntegrationProject).filter(
                     IntegrationProject.id == integration_id,
-                ).one_or_none()
-        return IntegrationAdmin.query.filter(
-            IntegrationAdmin.id == integration_id,
-        ).one_or_none()
+                ).first()
+        with db.get_session() as session:
+            return session.query(IntegrationAdmin).where(
+                IntegrationAdmin.id == integration_id,
+            ).first()
     
     @rpc('get_by_uid')
     def get_by_uid(
@@ -161,23 +162,24 @@ class RPC:
         """ 
         integration_uid = str(integration_uid)
         if project_id is not None:
-            with db.with_project_schema_session(project_id) as tenant_session:
+            with db.get_session(project_id) as tenant_session:
                 if integration := tenant_session.query(IntegrationProject).filter(
                     IntegrationProject.uid == integration_uid,
                 ).one_or_none():
                     integration.project_id = project_id
                     return integration
-        if integration := IntegrationAdmin.query.filter(
-            IntegrationAdmin.uid == integration_uid,
-        ).one_or_none():
-            return integration
+        with db.get_session() as session:
+            if integration := session.query(IntegrationAdmin).where(
+                IntegrationAdmin.uid == integration_uid,
+            ).first():
+                return integration
         if check_all_projects:
             projects = self.context.rpc_manager.call.project_list()
             for project in projects:
-                with db.with_project_schema_session(project['id']) as tenant_session:
-                    if integration := tenant_session.query(IntegrationProject).filter(
+                with db.get_session(project['id']) as tenant_session:
+                    if integration := tenant_session.query(IntegrationProject).where(
                         IntegrationProject.uid == integration_uid,
-                    ).one_or_none():
+                    ).first():
                         integration.project_id = project['id']
                         return integration
 
@@ -345,23 +347,24 @@ class RPC:
         return cloud_regions
 
     @rpc('get_administration_integrations')
-    def get_administration_integrations(self, group_by_section: bool = True) -> dict:
-        results = IntegrationAdmin.query.filter(
-            IntegrationAdmin.name.in_(self.integrations.keys())
-        ).group_by(
-            IntegrationAdmin.section,
-            IntegrationAdmin.id
-        ).order_by(
-            asc(IntegrationAdmin.section),
-            desc(IntegrationAdmin.is_default),
-            asc(IntegrationAdmin.name),
-            desc(IntegrationAdmin.id)
-        ).all()
+    def get_administration_integrations(self, group_by_section: bool = True) -> dict | List[IntegrationPD]:
+        with db.get_session() as session:
+            results = session.query(IntegrationAdmin).where(
+                IntegrationAdmin.name.in_(self.integrations.keys())
+            ).group_by(
+                IntegrationAdmin.section,
+                IntegrationAdmin.id
+            ).order_by(
+                asc(IntegrationAdmin.section),
+                desc(IntegrationAdmin.is_default),
+                asc(IntegrationAdmin.name),
+                desc(IntegrationAdmin.id)
+            ).all()
 
-        results = parse_obj_as(List[IntegrationPD], results)
+            results = parse_obj_as(List[IntegrationPD], results)
 
-        if not group_by_section:
-            return results
+            if not group_by_section:
+                return results
 
         def reducer(accum: dict, new_value: IntegrationPD) -> dict:
             accum[new_value.section.name].append(new_value)

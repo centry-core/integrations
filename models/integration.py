@@ -7,7 +7,6 @@ from tools import db_tools, db, rpc_tools
 from ..models.pd.integration import IntegrationBase
 
 
-
 class IntegrationAdmin(db_tools.AbstractBaseMixin, db.Base, rpc_tools.RpcMixin, rpc_tools.EventManagerMixin):
     __tablename__ = "integration"
     __table_args__ = (
@@ -30,41 +29,42 @@ class IntegrationAdmin(db_tools.AbstractBaseMixin, db.Base, rpc_tools.RpcMixin, 
     # ALTER TABLE "Project-1"."integration" ALTER COLUMN uid NOT NULL
     uid = Column(String(128), unique=True, nullable=False)
 
-    def make_default(self):
-        IntegrationAdmin.query.filter(
+    def make_default(self, session):
+        session.query(IntegrationAdmin).where(
             IntegrationAdmin.name == self.name,
             IntegrationAdmin.is_default == True,
             IntegrationAdmin.id != self.id
         ).update({IntegrationAdmin.is_default: False})
         self.is_default = True
-        super().insert()
+        # session.add(self)
+        # session.commit()
 
     def set_task_id(self, task_id: str):
-        IntegrationAdmin.query.filter(
-            IntegrationAdmin.id == self.id
-        ).update({IntegrationAdmin.task_id: task_id})
-        self.insert()
+        with db.get_session() as session:
+            session.query(IntegrationAdmin).where(
+                IntegrationAdmin.id == self.id
+            ).update({IntegrationAdmin.task_id: task_id})
+            session.commit()
 
-    def insert(self):
+    def insert(self, session):
         if not self.uid:
             self.uid = str(uuid4())
-        if not IntegrationAdmin.query.filter(
-            IntegrationAdmin.name == self.name,
-            IntegrationAdmin.is_default == True,
-        ).one_or_none():
+        if not session.query(IntegrationAdmin).filter(
+                IntegrationAdmin.name == self.name,
+                IntegrationAdmin.is_default == True,
+        ).first():
             self.is_default = True
-        super().insert()
-        self.process_secret_fields()
-        self.event_manager.fire_event(f'{self.name}_created_or_updated', self.to_json())
-
-    def process_secret_fields(self):
+        session.add(self)
+        # session.commit()
         settings: dict = self.rpc.call.integrations_process_secrets(
             integration_data=IntegrationBase.from_orm(self).dict(),
         )
-        IntegrationAdmin.query.filter(
+        session.query(IntegrationAdmin).where(
             IntegrationAdmin.id == self.id
         ).update({IntegrationAdmin.settings: settings})
-        super().insert()
+        # session.commit()
+        self.event_manager.fire_event(f'{self.name}_created_or_updated', self.to_json())
+
 
 
 class IntegrationProject(db_tools.AbstractBaseMixin, db.Base, rpc_tools.RpcMixin, rpc_tools.EventManagerMixin):
