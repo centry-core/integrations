@@ -55,7 +55,8 @@ class IntegrationAdmin(db_tools.AbstractBaseMixin, db.Base, rpc_tools.RpcMixin, 
         ).first():
             self.is_default = True
         session.add(self)
-        # session.commit()
+        session.commit()
+        session.refresh(self)
         settings: dict = self.rpc.call.integrations_process_secrets(
             integration_data=IntegrationBase.from_orm(self).dict(),
         )
