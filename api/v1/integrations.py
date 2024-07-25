@@ -1,7 +1,7 @@
 from flask import request
 from pylon.core.tools import log
 
-from tools import api_tools, auth
+from tools import api_tools, auth, serialize
 
 
 class ProjectAPI(api_tools.APIModeHandler):
@@ -15,14 +15,14 @@ class ProjectAPI(api_tools.APIModeHandler):
     def get(self, project_id: int):
         if request.args.get('name'):
             return [
-                i.dict() for i in self.module.get_all_integrations_by_name(project_id, request.args['name'])
+                serialize(i)for i in self.module.get_all_integrations_by_name(project_id, request.args['name'])
             ], 200
         if request.args.get('section'):
             return [
-                i.dict() for i in self.module.get_all_integrations_by_section(project_id, request.args['section'])
+                serialize(i) for i in self.module.get_all_integrations_by_section(project_id, request.args['section'])
             ], 200
         return [
-            i.dict() for i in self.module.get_all_integrations(project_id, False)
+            serialize(i) for i in self.module.get_all_integrations(project_id, False)
         ], 200
         
           
@@ -37,14 +37,14 @@ class AdminAPI(api_tools.APIModeHandler):
     def get(self, **kwargs):
         if request.args.get('name'):
             return [
-                i.dict() for i in self.module.get_administration_integrations_by_name(request.args['name'])
+                serialize(i) for i in self.module.get_administration_integrations_by_name(request.args['name'])
             ], 200
         if request.args.get('section'):
             return [
-                i.dict() for i in self.module.get_administration_integrations_by_section(request.args['section'])
+                serialize(i) for i in self.module.get_administration_integrations_by_section(request.args['section'])
             ], 200
         return [
-            i.dict() for i in self.module.get_administration_integrations(False)
+            serialize(i) for i in self.module.get_administration_integrations(False)
         ], 200
 
 
@@ -64,7 +64,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         offset = int(request.args.get('offset', 0))
         limit = int(request.args.get('limit', 10_000))
         return [
-            i.dict() for i in self.module.get_sorted_paginated_integrations_by_section(
+            serialize(i) for i in self.module.get_sorted_paginated_integrations_by_section(
                 self.AI_SECTION, project_id, sort_order, sort_by, offset, limit
             )
         ], 200

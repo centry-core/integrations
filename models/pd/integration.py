@@ -1,14 +1,12 @@
-import re
-
 from typing import Optional, Union
 from uuid import uuid4
 
-from pydantic import BaseModel, validator, constr, SecretStr, SecretField
+from pydantic import BaseModel, validator
 from pylon.core.tools import log
 
 from .registration import SectionRegistrationForm
 
-from tools import rpc_tools
+from tools import rpc_tools, SecretString
 
 
 class IntegrationBase(BaseModel):
@@ -73,25 +71,7 @@ class IntegrationDefaultPD(BaseModel):
         orm_mode = True
 
 
-# class SecretField(BaseModel):
-#     from_secrets: bool = True
-#     value: str
-#
-#     def unsecret(self, project_id: Optional[int] = None):
-#         from tools import VaultClient
-#         if self.from_secrets:
-#             if project_id:
-#                 client = VaultClient.from_project(project_id)
-#             else:
-#                 client = VaultClient()
-#             return client.unsecret(self.value)
-#         else:
-#             return self.value
-
-
-# class MySecretField:
-#     def __init__(self, value: str):
-#         self.value = value
-#         self.is_secret = True  # re.match pattern {{secret.}}
-
-
+class SecretField(SecretString):
+    @classmethod
+    def parse_obj(cls, v: dict):
+        return cls(v)
