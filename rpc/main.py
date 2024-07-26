@@ -303,30 +303,16 @@ class RPC:
         :return: settings of integration dict
         """
         project_id = integration_data.get("project_id")
-        if project_id is not None:
-            vault_client = VaultClient.from_project(project_id)
-        else:
-            vault_client = VaultClient()
-        secrets = vault_client.get_project_hidden_secrets()
         settings: dict = integration_data["settings"]
 
         for field, value in settings.items():
             try:
-                secret_field = SecretField.parse_obj(value)
+                secret_field = SecretField(str(value), project_id)
             except ValidationError:
                 continue
             if secret_field.from_secrets:
                 continue
-            mode = c.DEFAULT_MODE if integration_data['project_id'] else c.ADMINISTRATION_MODE
-            secret_path = f"{field}_{mode}_{integration_data['id']}"
-            secrets[secret_path] = secret_field.value
-
-            secret_field.value = "{{" + f"secret.{secret_path}" + "}}"
-            secret_field.from_secrets = True
-
-            settings[field] = secret_field.dict()
-
-        vault_client.set_project_hidden_secrets(secrets)
+            secret_field.store_secret()
 
         return settings
 

@@ -3,7 +3,7 @@ from pylon.core.tools import log
 from flask import request
 from pydantic import ValidationError
 
-from tools import api_tools, auth, db
+from tools import api_tools, auth, db, serialize
 from ...models.integration import IntegrationProject, IntegrationAdmin
 from ...models.pd.integration import IntegrationPD
 
@@ -61,7 +61,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             db_integration = IntegrationProject(
                 name=integration_name,
                 project_id=request.json.get('project_id'),
-                settings=settings.dict(),
+                settings=serialize(settings),
                 section=integration.section,
                 config=request.json.get('config'),
                 status=request.json.get('status', 'success'),
@@ -70,7 +70,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             if request.json.get('is_default'):
                 self.module.make_default_integration(db_integration, project_id)
             try:
-                return IntegrationPD.from_orm(db_integration).dict(), 200
+                return serialize(IntegrationPD.from_orm(db_integration)), 200
             except ValidationError as e:
                 return e.errors(), 400
 

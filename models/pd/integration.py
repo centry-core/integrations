@@ -75,3 +75,8 @@ class SecretField(SecretString):
     @classmethod
     def parse_obj(cls, v: dict):
         return cls(v)
+
+    @property
+    def from_secrets(self):
+        return self._is_secret
+
