@@ -3,7 +3,7 @@ from pylon.core.tools import log
 from flask import request
 from pydantic import ValidationError
 
-from tools import api_tools, auth, db, serialize
+from tools import api_tools, auth, db, serialize, store_secrets
 from ...models.integration import IntegrationProject, IntegrationAdmin
 from ...models.pd.integration import IntegrationPD
 
@@ -28,7 +28,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             )
             if not integration:
                 return None, 404
-        return IntegrationPD.from_orm(integration).dict(), 200
+        return serialize(IntegrationPD.from_orm(integration)), 200
         # try:
         #     settings = integration.settings_model.parse_obj(request.json)
         # except ValidationError as e:
@@ -58,6 +58,8 @@ class ProjectAPI(api_tools.APIModeHandler):
             return e.errors(), 400
 
         with db.with_project_schema_session(project_id) as tenant_session:
+            settings = settings.dict()
+            store_secrets(settings, project_id=project_id)
             db_integration = IntegrationProject(
                 name=integration_name,
                 project_id=request.json.get('project_id'),
@@ -107,7 +109,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             db_integration.settings = settings.dict()
             db_integration.config = request.json.get('config')
             db_integration.insert(tenant_session)
-            return IntegrationPD.from_orm(db_integration).dict(), 200
+            return serialize(IntegrationPD.from_orm(db_integration)), 200
 
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.edit"],
@@ -168,7 +170,7 @@ class AdminAPI(api_tools.APIModeHandler):
         )
         if not integration:
             return None, 404
-        return IntegrationPD.from_orm(integration).dict(), 200
+        return serialize(IntegrationPD.from_orm(integration)), 200
 
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.create"],
@@ -186,20 +188,23 @@ class AdminAPI(api_tools.APIModeHandler):
         except ValidationError as e:
             return e.errors(), 400
 
+        settings = settings.dict()
+        store_secrets(settings, project_id=None)
         db_integration = IntegrationAdmin(
             name=integration_name,
             # project_id=request.json.get('project_id'),
             # mode=request.json.get('mode', 'default'),
-            settings=settings.dict(),
+            settings=serialize(settings),
             section=integration.section,
             config=request.json.get('config'),
             status=request.json.get('status', 'success'),
         )
+
         with db.get_session() as session:
             db_integration.insert(session)
             if request.json.get('is_default'):
                 db_integration.make_default(session)
-            return IntegrationPD.from_orm(db_integration).dict(), 200
+            return serialize(IntegrationPD.from_orm(db_integration)), 200
 
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.edit"],
@@ -226,7 +231,7 @@ class AdminAPI(api_tools.APIModeHandler):
             if request.json.get('is_default'):
                 db_integration.make_default(session=session)
             session.commit()
-            return IntegrationPD.from_orm(db_integration).dict(), 200
+            return serialize(IntegrationPD.from_orm(db_integration)), 200
 
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.edit"],

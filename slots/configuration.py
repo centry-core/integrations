@@ -1,7 +1,6 @@
 from pylon.core.tools import web, log
-# from flask import g
-from flask import make_response, after_this_request
-from tools import auth, theme
+from flask import after_this_request
+from tools import auth, theme, serialize
 from datetime import datetime
 
 
@@ -48,9 +47,7 @@ class Slot:  # pylint: disable=E1101,R0903
         existing_integrations = self.get_all_integrations(project_id)  # comes from RPC
         all_sections = tuple(i.dict(exclude={'test_planner_description'}) for i in self.section_list())
         for i in all_sections:
-            # i['integrations'] = existing_integrations.get(i['name'], [])
-            i['integrations'] = list(map(lambda x: x.dict(), existing_integrations.get(i['name'], [])))
-            # i['integrations_parsed'] = [pd.dict() for pd in i['integrations']]
+            i['integrations'] = [serialize(j) for j in existing_integrations.get(i['name'], [])]
         with context.app.app_context():
             return self.descriptor.render_template(
                 'configuration/content.html',
