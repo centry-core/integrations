@@ -106,7 +106,7 @@ class ProjectAPI(api_tools.APIModeHandler):
                 self.module.make_default_integration(db_integration, project_id)
                 # db_integration.make_default(tenant_session)
 
-            db_integration.settings = settings.dict()
+            db_integration.settings = serialize(settings.dict())
             db_integration.config = request.json.get('config')
             db_integration.insert(tenant_session)
             return serialize(IntegrationPD.from_orm(db_integration)), 200
