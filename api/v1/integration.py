@@ -106,9 +106,22 @@ class ProjectAPI(api_tools.APIModeHandler):
                 self.module.make_default_integration(db_integration, project_id)
                 # db_integration.make_default(tenant_session)
 
-            db_integration.settings = serialize(settings.dict())
+            new_settings = serialize(settings.dict())
+            old_settings = db_integration.settings
+            db_integration.settings = new_settings
             db_integration.config = request.json.get('config')
             db_integration.insert(tenant_session)
+
+            self.module.context.event_manager.fire_event(
+                "integration_settings_changed",
+                {
+                    "project_id": db_integration.project_id,
+                    "integration_uid": db_integration.uid,
+                    "old_settings": old_settings,
+                    "new_settings": new_settings
+                }
+            )
+
             return serialize(IntegrationPD.from_orm(db_integration)), 200
 
     @auth.decorators.check_api({
@@ -153,6 +166,16 @@ class ProjectAPI(api_tools.APIModeHandler):
                 tenant_session.delete(db_integration)
                 tenant_session.commit()
                 self.module.delete_default_integration(db_integration, project_id)
+                self.module.context.event_manager.fire_event(
+                    "integration_settings_changed",
+                    {
+                        "project_id": db_integration.project_id,
+                        "integration_uid": db_integration.uid,
+                        "old_settings": db_integration.settings,
+                        "new_settings": {}
+                    }
+                )
+
         return integration_id, 204
 
 
