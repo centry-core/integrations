@@ -115,7 +115,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             self.module.context.event_manager.fire_event(
                 "integration_settings_changed",
                 {
-                    "project_id": db_integration.project_id,
+                    "project_ids": [project_id,],
                     "integration_uid": db_integration.uid,
                     "old_settings": old_settings,
                     "new_settings": new_settings
@@ -169,7 +169,7 @@ class ProjectAPI(api_tools.APIModeHandler):
                 self.module.context.event_manager.fire_event(
                     "integration_settings_changed",
                     {
-                        "project_id": db_integration.project_id,
+                        "project_ids": [project_id,],
                         "integration_uid": db_integration.uid,
                         "old_settings": db_integration.settings,
                         "new_settings": {}
@@ -247,13 +247,33 @@ class AdminAPI(api_tools.APIModeHandler):
             except ValidationError as e:
                 return e.errors(), 400
 
-            db_integration.settings = settings.dict()
+            old_settings = db_integration.settings
+            new_settings = serialize(settings.dict())
+            was_shared = db_integration.config.get('is_shared')
+
+            db_integration.settings = new_settings
             db_integration.config = request.json.get('config')
             db_integration.insert(session=session)
 
             if request.json.get('is_default'):
                 db_integration.make_default(session=session)
             session.commit()
+
+            if was_shared:
+                # was shared, but now is not == treat as deletion
+                if not db_integration.config.get('is_shared'):
+                    new_settings = {}
+                projects = self.module.context.rpc_manager.call.project_list(filter_={'create_success': True})
+                project_ids = [p['id'] for p in projects]
+                self.module.context.event_manager.fire_event(
+                    "integration_settings_changed",
+                    {
+                        "project_ids": project_ids,
+                        "integration_uid": db_integration.uid,
+                        "old_settings": old_settings,
+                        "new_settings": new_settings
+                    }
+                )
             return serialize(IntegrationPD.from_orm(db_integration)), 200
 
     @auth.decorators.check_api({
@@ -283,9 +303,23 @@ class AdminAPI(api_tools.APIModeHandler):
         }})
     def delete(self, integration_id: int, **kwargs):
         with db.get_session() as session:
-            del_id = session.query(IntegrationAdmin.id).where(IntegrationAdmin.id == integration_id).delete()
+            db_integration = session.query(IntegrationAdmin).where(IntegrationAdmin.id == integration_id).first()
+            session.delete(db_integration)
             session.commit()
-            return del_id, 204
+
+            if db_integration.config.get('is_shared'):
+                projects = self.module.context.rpc_manager.call.project_list(filter_={'create_success': True})
+                project_ids = [p['id'] for p in projects]
+                self.module.context.event_manager.fire_event(
+                    "integration_settings_changed",
+                    {
+                        "project_ids": project_ids,
+                        "integration_uid": db_integration.uid,
+                        "old_settings": db_integration.settings,
+                        "new_settings": {}
+                    }
+                )
+            return db_integration.id, 204
 
 
 class API(api_tools.APIBase):
