@@ -247,7 +247,7 @@ class AdminAPI(api_tools.APIModeHandler):
             except ValidationError as e:
                 return e.errors(), 400
 
-            db_integration.settings = settings.dict()
+            db_integration.settings = serialize(settings.dict())
             db_integration.config = request.json.get('config')
             db_integration.insert(session=session)
 
@@ -283,7 +283,11 @@ class AdminAPI(api_tools.APIModeHandler):
         }})
     def delete(self, integration_id: int, **kwargs):
         with db.get_session() as session:
-            del_id = session.query(IntegrationAdmin.id).where(IntegrationAdmin.id == integration_id).delete()
+            del_id = session.query(
+                IntegrationAdmin
+            ).where(
+                IntegrationAdmin.id == integration_id
+            ).delete()
             session.commit()
             return del_id, 204
 
