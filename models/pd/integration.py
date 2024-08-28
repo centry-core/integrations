@@ -71,6 +71,5 @@ class IntegrationDefaultPD(BaseModel):
         orm_mode = True
 
 
-class SecretField(SecretString):
-    pass
-
+# this is for compatibility with existing imports. consider using SecretString from tools
+SecretField = SecretString
