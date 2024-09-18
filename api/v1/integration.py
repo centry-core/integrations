@@ -55,6 +55,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         try:
             settings = integration.settings_model.parse_obj(request.json)
         except ValidationError as e:
+            log.error(e.errors())
             return e.errors(), 400
 
         with db.with_project_schema_session(project_id) as tenant_session:
@@ -106,7 +107,10 @@ class ProjectAPI(api_tools.APIModeHandler):
                 self.module.make_default_integration(db_integration, project_id)
                 # db_integration.make_default(tenant_session)
 
-            new_settings = serialize(settings.dict())
+            settings = settings.dict()
+            store_secrets(settings, project_id=project_id)
+
+            new_settings = serialize(settings)
             old_settings = db_integration.settings
             db_integration.settings = new_settings
             db_integration.config = request.json.get('config')
@@ -209,6 +213,7 @@ class AdminAPI(api_tools.APIModeHandler):
         try:
             settings = integration.settings_model.parse_obj(request.json)
         except ValidationError as e:
+            log.error(e.errors())
             return e.errors(), 400
 
         settings = settings.dict()
@@ -247,8 +252,11 @@ class AdminAPI(api_tools.APIModeHandler):
             except ValidationError as e:
                 return e.errors(), 400
 
+            settings = settings.dict()
+            store_secrets(settings, project_id=None)
+
             old_settings = db_integration.settings
-            new_settings = serialize(settings.dict())
+            new_settings = serialize(settings)
             was_shared = db_integration.config.get('is_shared')
 
             db_integration.settings = new_settings
