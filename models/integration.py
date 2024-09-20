@@ -57,15 +57,7 @@ class IntegrationAdmin(db_tools.AbstractBaseMixin, db.Base, rpc_tools.RpcMixin, 
         session.add(self)
         session.commit()
         session.refresh(self)
-        settings: dict = self.rpc.call.integrations_process_secrets(
-            integration_data=IntegrationBase.from_orm(self).dict(),
-        )
-        session.query(IntegrationAdmin).where(
-            IntegrationAdmin.id == self.id
-        ).update({IntegrationAdmin.settings: settings})
-        # session.commit()
         self.event_manager.fire_event(f'{self.name}_created_or_updated', self.to_json())
-
 
 
 class IntegrationProject(db_tools.AbstractBaseMixin, db.Base, rpc_tools.RpcMixin, rpc_tools.EventManagerMixin):
@@ -100,17 +92,7 @@ class IntegrationProject(db_tools.AbstractBaseMixin, db.Base, rpc_tools.RpcMixin
         ).one_or_none()
         if not inherited_integration and not default_integration:
             self.rpc.call.integrations_make_default_integration(self, self.project_id)
-        self.process_secret_fields(session)
         self.event_manager.fire_event(f'{self.name}_created_or_updated', self.to_json())
-
-    def process_secret_fields(self, session):
-        settings: dict = self.rpc.call.integrations_process_secrets(
-            integration_data=IntegrationBase.from_orm(self).dict(),
-        )
-        session.query(IntegrationProject).filter(
-            IntegrationProject.id == self.id
-        ).update({IntegrationProject.settings: settings})
-        session.commit()
 
 
 class IntegrationDefault(db_tools.AbstractBaseMixin, db.Base, rpc_tools.RpcMixin, rpc_tools.EventManagerMixin):
