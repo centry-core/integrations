@@ -292,30 +292,6 @@ class RPC:
                     raise e
         return {'integrations': integration_data}
 
-    @rpc('process_secrets')
-    @rpc_tools.wrap_exceptions(RuntimeError)
-    def process_secrets(self, integration_data: dict) -> dict:
-        """
-        Processes secret field in settings of integration
-        Finds all secret field and if it exists and given raw,
-        writes to secret and replaced field in database with link
-
-        :return: settings of integration dict
-        """
-        project_id = integration_data.get("project_id")
-        settings: dict = integration_data["settings"]
-
-        for field, value in settings.items():
-            try:
-                secret_field = SecretField(str(value), project_id)
-            except ValidationError:
-                continue
-            if secret_field.from_secrets:
-                continue
-            secret_field.store_secret()
-
-        return settings
-
     @rpc('get_cloud_integrations')
     def get_cloud_integrations(self, project_id: int) -> list:
         """

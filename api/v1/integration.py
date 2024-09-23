@@ -3,7 +3,7 @@ from pylon.core.tools import log
 from flask import request
 from pydantic import ValidationError
 
-from tools import api_tools, auth, db, serialize, store_secrets
+from tools import api_tools, auth, db, serialize, store_secrets, store_secrets_replaced
 from ...models.integration import IntegrationProject, IntegrationAdmin
 from ...models.pd.integration import IntegrationPD
 
@@ -108,7 +108,10 @@ class ProjectAPI(api_tools.APIModeHandler):
                 # db_integration.make_default(tenant_session)
 
             settings = settings.dict()
-            store_secrets(settings, project_id=project_id)
+            settings_before = integration.settings_model.parse_obj(
+                db_integration.settings
+            ).dict()
+            store_secrets_replaced(settings, settings_before, project_id=project_id)
 
             new_settings = serialize(settings)
             old_settings = db_integration.settings
@@ -253,7 +256,10 @@ class AdminAPI(api_tools.APIModeHandler):
                 return e.errors(), 400
 
             settings = settings.dict()
-            store_secrets(settings, project_id=None)
+            settings_before = integration.settings_model.parse_obj(
+                db_integration.settings
+            ).dict()
+            store_secrets_replaced(settings, settings_before, project_id=None)
 
             old_settings = db_integration.settings
             new_settings = serialize(settings)
