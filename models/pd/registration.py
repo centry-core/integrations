@@ -2,7 +2,7 @@ from typing import Optional, Union
 
 from pydantic.class_validators import validator
 from pydantic.main import ModelMetaclass
-from pydantic import BaseModel
+from pydantic import BaseModel, root_validator
 
 
 def name_validator(cls, value: str):
@@ -21,6 +21,7 @@ class RegistrationForm(BaseModel):
     name: str
     section: str  # we manually manage relationships
     settings_model: Optional[ModelMetaclass]  # todo: replace for validation callback
+    create_settings_model: Optional[ModelMetaclass]
     # integration_callback: Optional[Callable] = lambda context, slot, payload: None
 
     _lower_name = validator('name', allow_reuse=True)(name_validator)
@@ -37,6 +38,15 @@ class RegistrationForm(BaseModel):
                 section = integrations_tools.register_section(**value)
 
         return section.name
+
+    @root_validator
+    def create_settings_validator(cls, values):
+        create_settings_model = values.get('create_settings_model')
+        settings_model = values.get('settings_model')
+        if create_settings_model is None and settings_model:
+            values['create_settings_model'] = settings_model
+
+        return values
 
     class Config:
         json_encoders = {
