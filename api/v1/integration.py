@@ -53,7 +53,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         if not integration:
             return {'error': 'integration not found'}, 404
         try:
-            settings = integration.settings_model.parse_obj(request.json)
+            settings = integration.create_settings_model.parse_obj(request.json)
         except ValidationError as e:
             log.error(e.errors())
             return e.errors(), 400
@@ -89,6 +89,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         project_id_in_request_json=True
     )
     def put(self, integration_id: int):
+        # TODO: unclear settings validation logic on update
         project_id = request.json.get('project_id')
         if not project_id:
             return {'error': 'project_id not provided'}, 400
@@ -210,11 +211,12 @@ class AdminAPI(api_tools.APIModeHandler):
             "developer": {"admin": False, "viewer": False, "editor": False},
         }})
     def post(self, integration_name: str, **kwargs):
+        request.json.pop('project_id', None)
         integration = self.module.get_by_name(integration_name)
         if not integration:
             return {'error': 'integration not found'}, 404
         try:
-            settings = integration.settings_model.parse_obj(request.json)
+            settings = integration.create_settings_model.parse_obj(request.json)
         except ValidationError as e:
             log.error(e.errors())
             return e.errors(), 400
@@ -245,6 +247,8 @@ class AdminAPI(api_tools.APIModeHandler):
             "developer": {"admin": False, "viewer": False, "editor": False},
         }})
     def put(self, integration_id: int, **kwargs):
+        # TODO: unclear settings validation logic on update
+        request.json.pop('project_id', None)
         with db.get_session() as session:
             db_integration = session.query(IntegrationAdmin).where(IntegrationAdmin.id == integration_id).first()
             integration = self.module.get_by_name(db_integration.name)
