@@ -26,6 +26,25 @@ def _usecret_field(integration_db, project_id, is_local):
     return settings
 
 
+def _find_integration_by_partial_settings(module, project_id, integration_name, partial_settings, from_all):
+    if from_all:
+        integrations = module.get_all_integrations_by_name(
+            project_id,
+            integration_name
+        )
+    else:
+        integrations = module.get_project_integrations_by_name(
+            project_id,
+            integration_name
+        )
+    for i in integrations:
+        for k, v in partial_settings.items():
+            if i.settings.get(k) != v:
+                break
+        else:
+            return i
+
+
 class RPC:
     rpc = lambda name: web.rpc(f'integrations_{name}', name)
 
@@ -630,3 +649,41 @@ class RPC:
     #                                                     )
     #             tenant_session.add(default_integration)
     #             tenant_session.commit()
+
+
+    @rpc('find_first_integration_by_partial_settings')
+    def find_first_integration_by_partial_settings(
+        self,
+        user_id: int,
+        project_id: int,
+        integration_name: str,
+        partial_settings: dict
+    ):
+        found_integration = None
+
+        if user_id == project_id:
+            found_integration = _find_integration_by_partial_settings(
+                self,
+                user_id,
+                integration_name,
+                partial_settings,
+                from_all=True
+            )
+        else:
+            found_integration = _find_integration_by_partial_settings(
+                self,
+                project_id,
+                integration_name,
+                partial_settings,
+                from_all=False
+            )
+            if found_integration is None:
+                found_integration = _find_integration_by_partial_settings(
+                    self,
+                    user_id,
+                    integration_name,
+                    partial_settings,
+                    from_all=True
+                )
+
+        return found_integration
