@@ -156,7 +156,7 @@ const SecretFieldInput = {
     computed: {
         value: {
             get() {
-                if (this.modelValue.hasOwnProperty("value")) {
+                if (this.modelValue !== null && this.modelValue.hasOwnProperty("value")) {
                     return this.modelValue.value
                 }
                 return this.modelValue
