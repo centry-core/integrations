@@ -687,3 +687,23 @@ class RPC:
                 )
 
         return found_integration
+
+    @rpc('get_integrations_by_setting_value')
+    def get_integrations_by_setting_value(
+        self,
+        project_id: int,
+        integration_name: str,
+        setting_name: str,
+        setting_value
+    ):
+        integrations = []
+        if project_id is None:
+            ints = self.get_administration_integrations_by_name(integration_name)
+        else:
+            ints = self.get_project_integrations_by_name(project_id, integration_name)
+
+        for integration in ints:
+            if integration.settings.get(setting_name) == setting_value:
+                integrations.append(integration)
+
+        return integrations
