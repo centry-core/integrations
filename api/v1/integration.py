@@ -66,7 +66,7 @@ class ProjectAPI(api_tools.APIModeHandler):
                 project_id=request.json.get('project_id'),
                 settings=serialize(settings),
                 section=integration.section,
-                config=request.json.get('config'),
+                config=request.json.get('config', {}),
                 status=request.json.get('status', 'success'),
             )
             db_integration.insert(tenant_session)
@@ -117,7 +117,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             new_settings = serialize(settings)
             old_settings = db_integration.settings
             db_integration.settings = new_settings
-            db_integration.config = request.json.get('config')
+            db_integration.config = request.json.get('config', {})
             db_integration.insert(tenant_session)
 
             self.module.context.event_manager.fire_event(
@@ -229,7 +229,7 @@ class AdminAPI(api_tools.APIModeHandler):
             # mode=request.json.get('mode', 'default'),
             settings=serialize(settings),
             section=integration.section,
-            config=request.json.get('config'),
+            config=request.json.get('config', {}),
             status=request.json.get('status', 'success'),
         )
 
@@ -270,7 +270,7 @@ class AdminAPI(api_tools.APIModeHandler):
             was_shared = db_integration.config.get('is_shared')
 
             db_integration.settings = new_settings
-            db_integration.config = request.json.get('config')
+            db_integration.config = request.json.get('config', {})
             db_integration.insert(session=session)
 
             if request.json.get('is_default'):
