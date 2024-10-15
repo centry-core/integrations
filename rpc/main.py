@@ -661,6 +661,7 @@ class RPC:
     ):
         found_integration = None
 
+        # priv -> admin
         if user_id == project_id:
             found_integration = _find_integration_by_partial_settings(
                 self,
@@ -670,14 +671,9 @@ class RPC:
                 from_all=True
             )
         else:
-            found_integration = _find_integration_by_partial_settings(
-                self,
-                project_id,
-                integration_name,
-                partial_settings,
-                from_all=False
-            )
-            if found_integration is None:
+            is_shared_project = self.context.rpc_manager.call.admin_check_user_in_project(project_id, user_id)
+            if not is_shared_project:
+                # priv -> admin
                 found_integration = _find_integration_by_partial_settings(
                     self,
                     user_id,
@@ -685,6 +681,23 @@ class RPC:
                     partial_settings,
                     from_all=True
                 )
+            else:
+                # shared -> priv -> admin
+                found_integration = _find_integration_by_partial_settings(
+                    self,
+                    project_id,
+                    integration_name,
+                    partial_settings,
+                    from_all=False
+                )
+                if found_integration is None:
+                    found_integration = _find_integration_by_partial_settings(
+                        self,
+                        user_id,
+                        integration_name,
+                        partial_settings,
+                        from_all=True
+                    )
 
         return found_integration
 
