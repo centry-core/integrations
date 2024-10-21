@@ -11,8 +11,7 @@ from ..models.integration import IntegrationProject, IntegrationAdmin, Integrati
 from ..models.pd.integration import IntegrationPD, SecretField, IntegrationDefaultPD
 from ..models.pd.registration import RegistrationForm, SectionRegistrationForm
 
-from tools import rpc_tools, VaultClient, db
-from tools import constants as c
+from tools import rpc_tools, db
 
 from pylon.core.tools import web
 
@@ -24,25 +23,6 @@ def _usecret_field(integration_db, project_id, is_local):
     settings['integration_id'] = integration_db.id
     settings['is_local'] = is_local
     return settings
-
-
-def _find_integration_by_partial_settings(module, project_id, integration_name, partial_settings, from_all):
-    if from_all:
-        integrations = module.get_all_integrations_by_name(
-            project_id,
-            integration_name
-        )
-    else:
-        integrations = module.get_project_integrations_by_name(
-            project_id,
-            integration_name
-        )
-    for i in integrations:
-        for k, v in partial_settings.items():
-            if i.settings.get(k) != v:
-                break
-        else:
-            return i
 
 
 class RPC:
@@ -650,56 +630,6 @@ class RPC:
     #             tenant_session.add(default_integration)
     #             tenant_session.commit()
 
-
-    @rpc('find_first_integration_by_partial_settings')
-    def find_first_integration_by_partial_settings(
-        self,
-        user_id: int,
-        project_id: int,
-        integration_name: str,
-        partial_settings: dict
-    ):
-        found_integration = None
-
-        # priv -> admin
-        if user_id == project_id:
-            found_integration = _find_integration_by_partial_settings(
-                self,
-                user_id,
-                integration_name,
-                partial_settings,
-                from_all=True
-            )
-        else:
-            is_shared_project = self.context.rpc_manager.call.admin_check_user_in_project(project_id, user_id)
-            if not is_shared_project:
-                # priv -> admin
-                found_integration = _find_integration_by_partial_settings(
-                    self,
-                    user_id,
-                    integration_name,
-                    partial_settings,
-                    from_all=True
-                )
-            else:
-                # shared -> priv -> admin
-                found_integration = _find_integration_by_partial_settings(
-                    self,
-                    project_id,
-                    integration_name,
-                    partial_settings,
-                    from_all=False
-                )
-                if found_integration is None:
-                    found_integration = _find_integration_by_partial_settings(
-                        self,
-                        user_id,
-                        integration_name,
-                        partial_settings,
-                        from_all=True
-                    )
-
-        return found_integration
 
     @rpc('get_integrations_by_setting_value')
     def get_integrations_by_setting_value(
