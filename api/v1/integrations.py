@@ -1,7 +1,29 @@
+from typing import Optional
+
 from flask import request
 from pylon.core.tools import log
 
-from tools import api_tools, auth, serialize
+from tools import api_tools, auth, serialize, VaultClient
+
+
+def get_project_integrations_api(self, project_id: int, name: Optional[str] = None, section: Optional[str] = None,
+                                 unsecret: bool = False):
+    if name:
+        resp = [
+            serialize(i) for i in self.get_all_integrations_by_name(project_id, name)
+        ]
+    elif section:
+        resp = [
+            serialize(i) for i in self.get_all_integrations_by_section(project_id, section)
+        ]
+    else:
+        resp = [
+            serialize(i) for i in self.get_all_integrations(project_id, False)
+        ]
+    if unsecret:
+        VaultClient(project_id).unsecret(resp)
+    return resp
+
 
 
 class ProjectAPI(api_tools.APIModeHandler):
@@ -13,19 +35,16 @@ class ProjectAPI(api_tools.APIModeHandler):
             "developer": {"admin": True, "viewer": False, "editor": False},
         }})
     def get(self, project_id: int):
-        if request.args.get('name'):
-            return [
-                serialize(i)for i in self.module.get_all_integrations_by_name(project_id, request.args['name'])
-            ], 200
-        if request.args.get('section'):
-            return [
-                serialize(i) for i in self.module.get_all_integrations_by_section(project_id, request.args['section'])
-            ], 200
-        return [
-            serialize(i) for i in self.module.get_all_integrations(project_id, False)
-        ], 200
-        
-          
+        resp = get_project_integrations_api(
+            self=self.module,
+            project_id=project_id,
+            name=request.args.get('name'),
+            section=request.args.get('section'),
+            unsecret=bool(request.args.get('unsecret', False))
+        )
+        return resp, 200
+
+
 class AdminAPI(api_tools.APIModeHandler):
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.view"],

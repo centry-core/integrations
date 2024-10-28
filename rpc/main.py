@@ -11,7 +11,7 @@ from ..models.integration import IntegrationProject, IntegrationAdmin, Integrati
 from ..models.pd.integration import IntegrationPD, SecretField, IntegrationDefaultPD
 from ..models.pd.registration import RegistrationForm, SectionRegistrationForm
 
-from tools import rpc_tools, db
+from tools import rpc_tools, db, serialize, VaultClient
 
 from pylon.core.tools import web
 
