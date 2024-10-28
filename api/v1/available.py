@@ -25,10 +25,10 @@ class API(api_tools.APIBase):
     }
 
     def get(self, **kwargs):
-        sections = [i.strip() for i in request.args.get('section', '').split(',')]
+        section_filter = request.args.get('section')
         result = []
-        if sections:
-            for s in sections:
-                result.extend(self.module.list_integrations_by_section(s))
+        if section_filter:
+            for s in section_filter.split(','):
+                result.extend(self.module.list_integrations_by_section(s.strip()))
             return result, 200
         return list(self.module.list_integrations()), 200
