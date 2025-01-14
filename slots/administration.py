@@ -1,6 +1,7 @@
 from pylon.core.tools import web, log
+# from flask import g
 
-from tools import auth, theme, serialize
+from tools import auth, theme
 
 
 class Slot:  # pylint: disable=E1101,R0903
@@ -34,7 +35,9 @@ class Slot:  # pylint: disable=E1101,R0903
         existing_integrations = self.get_administration_integrations()  # comes from RPC
         all_sections = tuple(i.dict(exclude={'test_planner_description'}) for i in self.section_list())
         for i in all_sections:
-            i['integrations'] = [serialize(j) for j in existing_integrations.get(i['name'], [])]
+            # i['integrations'] = existing_integrations.get(i['name'], [])
+            i['integrations'] = list(map(lambda x: x.dict(), existing_integrations.get(i['name'], [])))
+            # i['integrations_parsed'] = [pd.dict() for pd in i['integrations']]
 
         with context.app.app_context():
             log.info(f'existing_integrations {existing_integrations}')

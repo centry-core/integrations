@@ -1,9 +1,9 @@
 from pylon.core.tools import log
 
 from flask import request
-from pydantic import ValidationError
+from pydantic import ValidationError, parse_obj_as
 
-from tools import api_tools, auth, db, serialize, store_secrets, store_secrets_replaced
+from tools import api_tools, auth, db
 from ...models.integration import IntegrationProject, IntegrationAdmin
 from ...models.pd.integration import IntegrationPD
 
@@ -28,23 +28,19 @@ class ProjectAPI(api_tools.APIModeHandler):
             )
             if not integration:
                 return None, 404
-        return serialize(IntegrationPD.from_orm(integration)), 200
+        return IntegrationPD.from_orm(integration).dict(), 200
         # try:
         #     settings = integration.settings_model.parse_obj(request.json)
         # except ValidationError as e:
         #     return e.errors(), 400
 
-    @auth.decorators.check_api(
-        {
-            "permissions": ["configuration.integrations.integrations.create"],
-            "recommended_roles": {
-                "administration": {"admin": True, "viewer": False, "editor": True},
-                "default": {"admin": True, "viewer": False, "editor": True},
-                "developer": {"admin": False, "viewer": False, "editor": False},
-            }
-        },
-        project_id_in_request_json=True
-    )
+    @auth.decorators.check_api({
+        "permissions": ["configuration.integrations.integrations.create"],
+        "recommended_roles": {
+            "administration": {"admin": True, "viewer": False, "editor": True},
+            "default": {"admin": True, "viewer": False, "editor": True},
+            "developer": {"admin": False, "viewer": False, "editor": False},
+        }})
     def post(self, integration_name: str):
         project_id = request.json.get('project_id')
         if not project_id:
@@ -53,43 +49,35 @@ class ProjectAPI(api_tools.APIModeHandler):
         if not integration:
             return {'error': 'integration not found'}, 404
         try:
-            settings = integration.create_settings_model.parse_obj(request.json)
+            settings = integration.settings_model.parse_obj(request.json)
         except ValidationError as e:
-            log.error(e.errors())
             return e.errors(), 400
 
         with db.with_project_schema_session(project_id) as tenant_session:
-            settings = settings.dict()
-            store_secrets(settings, project_id=project_id)
             db_integration = IntegrationProject(
                 name=integration_name,
                 project_id=request.json.get('project_id'),
-                settings=serialize(settings),
+                settings=settings.dict(),
                 section=integration.section,
-                config=request.json.get('config', {}),
+                config=request.json.get('config'),
                 status=request.json.get('status', 'success'),
             )
             db_integration.insert(tenant_session)
             if request.json.get('is_default'):
                 self.module.make_default_integration(db_integration, project_id)
             try:
-                return serialize(IntegrationPD.from_orm(db_integration)), 200
+                return IntegrationPD.from_orm(db_integration).dict(), 200
             except ValidationError as e:
                 return e.errors(), 400
 
-    @auth.decorators.check_api(
-        {
-            "permissions": ["configuration.integrations.integrations.edit"],
-            "recommended_roles": {
-                "administration": {"admin": True, "viewer": False, "editor": True},
-                "default": {"admin": True, "viewer": False, "editor": True},
-                "developer": {"admin": False, "viewer": False, "editor": False},
-            }
-        },
-        project_id_in_request_json=True
-    )
+    @auth.decorators.check_api({
+        "permissions": ["configuration.integrations.integrations.edit"],
+        "recommended_roles": {
+            "administration": {"admin": True, "viewer": False, "editor": True},
+            "default": {"admin": True, "viewer": False, "editor": True},
+            "developer": {"admin": False, "viewer": False, "editor": False},
+        }})
     def put(self, integration_id: int):
-        # TODO: unclear settings validation logic on update
         project_id = request.json.get('project_id')
         if not project_id:
             return {'error': 'project_id not provided'}, 400
@@ -108,29 +96,10 @@ class ProjectAPI(api_tools.APIModeHandler):
                 self.module.make_default_integration(db_integration, project_id)
                 # db_integration.make_default(tenant_session)
 
-            settings = settings.dict()
-            settings_before = integration.settings_model.parse_obj(
-                db_integration.settings
-            ).dict()
-            store_secrets_replaced(settings, settings_before, project_id=project_id)
-
-            new_settings = serialize(settings)
-            old_settings = db_integration.settings
-            db_integration.settings = new_settings
-            db_integration.config = request.json.get('config', {})
+            db_integration.settings = settings.dict()
+            db_integration.config = request.json.get('config')
             db_integration.insert(tenant_session)
-
-            self.module.context.event_manager.fire_event(
-                "integration_settings_changed",
-                {
-                    "project_ids": [project_id,],
-                    "integration_uid": db_integration.uid,
-                    "old_settings": old_settings,
-                    "new_settings": new_settings
-                }
-            )
-
-            return serialize(IntegrationPD.from_orm(db_integration)), 200
+            return IntegrationPD.from_orm(db_integration).dict(), 200
 
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.edit"],
@@ -149,14 +118,13 @@ class ProjectAPI(api_tools.APIModeHandler):
                     return {'error': 'integration not found'}, 404
                 self.module.make_default_integration(db_integration, project_id)
         else:
-            with db.get_session() as session:
-                db_integration = session.query(IntegrationAdmin).where(
-                    IntegrationAdmin.id == integration_id).first()
-                integration = self.module.get_by_name(db_integration.name)
-                if not integration or not db_integration:
-                    return {'error': 'integration not found'}, 404
-                db_integration.project_id = None
-                self.module.make_default_integration(db_integration, project_id)
+            db_integration = IntegrationAdmin.query.filter(
+                IntegrationAdmin.id == integration_id).first()
+            integration = self.module.get_by_name(db_integration.name)
+            if not integration or not db_integration:
+                return {'error': 'integration not found'}, 404
+            db_integration.project_id = None
+            self.module.make_default_integration(db_integration, project_id)
         return {'msg': 'integration set as default'}, 200
 
     @auth.decorators.check_api({
@@ -174,16 +142,6 @@ class ProjectAPI(api_tools.APIModeHandler):
                 tenant_session.delete(db_integration)
                 tenant_session.commit()
                 self.module.delete_default_integration(db_integration, project_id)
-                self.module.context.event_manager.fire_event(
-                    "integration_settings_changed",
-                    {
-                        "project_ids": [project_id,],
-                        "integration_uid": db_integration.uid,
-                        "old_settings": db_integration.settings,
-                        "new_settings": {}
-                    }
-                )
-
         return integration_id, 204
 
 
@@ -201,7 +159,7 @@ class AdminAPI(api_tools.APIModeHandler):
         )
         if not integration:
             return None, 404
-        return serialize(IntegrationPD.from_orm(integration)), 200
+        return IntegrationPD.from_orm(integration).dict(), 200
 
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.create"],
@@ -211,33 +169,27 @@ class AdminAPI(api_tools.APIModeHandler):
             "developer": {"admin": False, "viewer": False, "editor": False},
         }})
     def post(self, integration_name: str, **kwargs):
-        request.json.pop('project_id', None)
         integration = self.module.get_by_name(integration_name)
         if not integration:
             return {'error': 'integration not found'}, 404
         try:
-            settings = integration.create_settings_model.parse_obj(request.json)
+            settings = integration.settings_model.parse_obj(request.json)
         except ValidationError as e:
-            log.error(e.errors())
             return e.errors(), 400
 
-        settings = settings.dict()
-        store_secrets(settings, project_id=None)
         db_integration = IntegrationAdmin(
             name=integration_name,
             # project_id=request.json.get('project_id'),
             # mode=request.json.get('mode', 'default'),
-            settings=serialize(settings),
+            settings=settings.dict(),
             section=integration.section,
-            config=request.json.get('config', {}),
+            config=request.json.get('config'),
             status=request.json.get('status', 'success'),
         )
-
-        with db.get_session() as session:
-            db_integration.insert(session)
-            if request.json.get('is_default'):
-                db_integration.make_default(session)
-            return serialize(IntegrationPD.from_orm(db_integration)), 200
+        db_integration.insert()
+        if request.json.get('is_default'):
+            db_integration.make_default()
+        return IntegrationPD.from_orm(db_integration).dict(), 200
 
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.edit"],
@@ -247,52 +199,22 @@ class AdminAPI(api_tools.APIModeHandler):
             "developer": {"admin": False, "viewer": False, "editor": False},
         }})
     def put(self, integration_id: int, **kwargs):
-        # TODO: unclear settings validation logic on update
-        request.json.pop('project_id', None)
-        with db.get_session() as session:
-            db_integration = session.query(IntegrationAdmin).where(IntegrationAdmin.id == integration_id).first()
-            integration = self.module.get_by_name(db_integration.name)
-            if not integration or not db_integration:
-                return {'error': 'integration not found'}, 404
-            try:
-                settings = integration.settings_model.parse_obj(request.json)
-            except ValidationError as e:
-                return e.errors(), 400
+        db_integration = IntegrationAdmin.query.filter(IntegrationAdmin.id == integration_id).first()
+        integration = self.module.get_by_name(db_integration.name)
+        if not integration or not db_integration:
+            return {'error': 'integration not found'}, 404
+        try:
+            settings = integration.settings_model.parse_obj(request.json)
+        except ValidationError as e:
+            return e.errors(), 400
 
-            settings = settings.dict()
-            settings_before = integration.settings_model.parse_obj(
-                db_integration.settings
-            ).dict()
-            store_secrets_replaced(settings, settings_before, project_id=None)
+        if request.json.get('is_default'):
+            db_integration.make_default()
 
-            old_settings = db_integration.settings
-            new_settings = serialize(settings)
-            was_shared = db_integration.config.get('is_shared')
-
-            db_integration.settings = new_settings
-            db_integration.config = request.json.get('config', {})
-            db_integration.insert(session=session)
-
-            if request.json.get('is_default'):
-                db_integration.make_default(session=session)
-            session.commit()
-
-            if was_shared:
-                # was shared, but now is not == treat as deletion
-                if not db_integration.config.get('is_shared'):
-                    new_settings = {}
-                projects = self.module.context.rpc_manager.call.project_list(filter_={'create_success': True})
-                project_ids = [p['id'] for p in projects]
-                self.module.context.event_manager.fire_event(
-                    "integration_settings_changed",
-                    {
-                        "project_ids": project_ids,
-                        "integration_uid": db_integration.uid,
-                        "old_settings": old_settings,
-                        "new_settings": new_settings
-                    }
-                )
-            return serialize(IntegrationPD.from_orm(db_integration)), 200
+        db_integration.settings = settings.dict()
+        db_integration.config = request.json.get('config')
+        db_integration.insert()
+        return IntegrationPD.from_orm(db_integration).dict(), 200
 
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.edit"],
@@ -302,15 +224,12 @@ class AdminAPI(api_tools.APIModeHandler):
             "developer": {"admin": False, "viewer": False, "editor": False},
         }})
     def patch(self, integration_id: int, **kwargs):
-        with db.get_session() as session:
-            db_integration: IntegrationAdmin = session.query(IntegrationAdmin).where(
-                IntegrationAdmin.id == integration_id).first()
-            integration = self.module.get_by_name(db_integration.name)
-            if not integration or not db_integration:
-                return {'error': 'integration not found'}, 404
-            db_integration.make_default(session=session)
-            session.commit()
-            return {'msg': 'integration set as default'}, 200
+        db_integration = IntegrationAdmin.query.filter(IntegrationAdmin.id == integration_id).first()
+        integration = self.module.get_by_name(db_integration.name)
+        if not integration or not db_integration:
+            return {'error': 'integration not found'}, 404
+        db_integration.make_default()
+        return {'msg': 'integration set as default'}, 200
 
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.delete"],
@@ -320,24 +239,9 @@ class AdminAPI(api_tools.APIModeHandler):
             "developer": {"admin": False, "viewer": False, "editor": False},
         }})
     def delete(self, integration_id: int, **kwargs):
-        with db.get_session() as session:
-            db_integration = session.query(IntegrationAdmin).where(IntegrationAdmin.id == integration_id).first()
-            session.delete(db_integration)
-            session.commit()
-
-            if db_integration.config.get('is_shared'):
-                projects = self.module.context.rpc_manager.call.project_list(filter_={'create_success': True})
-                project_ids = [p['id'] for p in projects]
-                self.module.context.event_manager.fire_event(
-                    "integration_settings_changed",
-                    {
-                        "project_ids": project_ids,
-                        "integration_uid": db_integration.uid,
-                        "old_settings": db_integration.settings,
-                        "new_settings": {}
-                    }
-                )
-            return db_integration.id, 204
+        IntegrationAdmin.query.filter(IntegrationAdmin.id == integration_id).delete()
+        IntegrationAdmin.commit()
+        return integration_id, 204
 
 
 class API(api_tools.APIBase):
