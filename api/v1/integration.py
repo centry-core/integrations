@@ -1,7 +1,7 @@
 from pylon.core.tools import log
 
 from flask import request
-from pydantic import ValidationError
+from pydantic.v1 import ValidationError
 
 from tools import api_tools, auth, db, serialize, store_secrets, store_secrets_replaced
 from ...models.integration import IntegrationProject, IntegrationAdmin
