@@ -1,7 +1,7 @@
 from typing import Optional, Union
 from uuid import uuid4
 
-from pydantic import BaseModel, validator
+from pydantic.v1 import BaseModel, validator
 from pylon.core.tools import log
 
 from .registration import SectionRegistrationForm

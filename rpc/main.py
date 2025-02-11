@@ -5,7 +5,7 @@ from typing import Optional, List
 
 from pylon.core.tools import log
 from sqlalchemy import desc, asc, Boolean
-from pydantic import parse_obj_as, ValidationError
+from pydantic.v1 import parse_obj_as, ValidationError
 
 from ..models.integration import IntegrationProject, IntegrationAdmin, IntegrationDefault
 from ..models.pd.integration import IntegrationPD, SecretField, IntegrationDefaultPD

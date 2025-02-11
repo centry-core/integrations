@@ -1,8 +1,8 @@
 from typing import Optional, Union
 
-from pydantic.class_validators import validator
-from pydantic.main import ModelMetaclass
-from pydantic import BaseModel, root_validator
+from pydantic.v1.class_validators import validator
+from pydantic.v1.main import ModelMetaclass
+from pydantic.v1 import BaseModel, root_validator
 
 
 def name_validator(cls, value: str):
