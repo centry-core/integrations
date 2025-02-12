@@ -1,16 +1,15 @@
 from sqlalchemy import Boolean
 
 from ..models.integration import IntegrationAdmin, IntegrationDefault
-from ..models.pd.integration import SecretField
 
-from tools import rpc_tools, VaultClient, db
+from tools import rpc_tools, VaultClient, db, SecretString
 
 from pylon.core.tools import web, log
 
 
 def _usecret_field(integration_db, project_id):
     settings = integration_db.settings
-    secret_access_key = SecretField.parse_obj(settings['secret_access_key'])
+    secret_access_key = SecretString(settings['secret_access_key'])
     settings['secret_access_key'] = secret_access_key.unsecret(project_id=project_id)
     return settings
 

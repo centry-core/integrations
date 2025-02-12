@@ -72,13 +72,13 @@ class IntegrationDefaultPD(BaseModel):
 
 
 # this is for compatibility with existing imports. consider using SecretString from tools
-class SecretField(SecretString):
-    @classmethod
-    def parse_obj(cls, v: dict):
-        '''deprecated. here for compatibility'''
-        return cls(v)
-
-    @property
-    def from_secrets(self):
-        '''deprecated. here for compatibility'''
-        return self._is_secret
+# class SecretField(SecretString):
+#     @classmethod
+#     def parse_obj(cls, v: dict):
+#         '''deprecated. here for compatibility'''
+#         return cls(v)
+#
+#     @property
+#     def from_secrets(self):
+#         '''deprecated. here for compatibility'''
+#         return self._is_secret

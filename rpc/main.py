@@ -8,17 +8,17 @@ from sqlalchemy import desc, asc, Boolean
 from pydantic.v1 import parse_obj_as, ValidationError
 
 from ..models.integration import IntegrationProject, IntegrationAdmin, IntegrationDefault
-from ..models.pd.integration import IntegrationPD, SecretField, IntegrationDefaultPD
+from ..models.pd.integration import IntegrationPD, IntegrationDefaultPD
 from ..models.pd.registration import RegistrationForm, SectionRegistrationForm
 
-from tools import rpc_tools, db, serialize, VaultClient
+from tools import rpc_tools, db, serialize, VaultClient, SecretString
 
 from pylon.core.tools import web
 
 
 def _usecret_field(integration_db, project_id, is_local):
     settings = integration_db.settings
-    secret_access_key = SecretField.parse_obj(settings['secret_access_key'])
+    secret_access_key = SecretString(settings['secret_access_key'])
     settings['secret_access_key'] = secret_access_key.unsecret(project_id=project_id)
     settings['integration_id'] = integration_db.id
     settings['is_local'] = is_local
