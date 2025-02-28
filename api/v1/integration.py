@@ -163,7 +163,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         "permissions": ["configuration.integrations.integrations.delete"],
         "recommended_roles": {
             "administration": {"admin": True, "viewer": False, "editor": False},
-            "default": {"admin": True, "viewer": False, "editor": False},
+            "default": {"admin": True, "viewer": False, "editor": True},
             "developer": {"admin": False, "viewer": False, "editor": False},
         }})
     def delete(self, project_id: int, integration_id: int):
