@@ -53,6 +53,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         if not integration:
             return {'error': 'integration not found'}, 404
         try:
+            log.debug(f"Creating new integration {integration_name} {request.json=}")
             settings = integration.create_settings_model.parse_obj(request.json)
         except ValidationError as e:
             log.error(e.errors())
@@ -63,7 +64,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             store_secrets(settings, project_id=project_id)
             db_integration = IntegrationProject(
                 name=integration_name,
-                project_id=request.json.get('project_id'),
+                project_id=project_id,
                 settings=serialize(settings),
                 section=integration.section,
                 config=request.json.get('config', {}),
