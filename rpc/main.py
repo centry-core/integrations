@@ -459,10 +459,6 @@ class RPC:
         sorted_list = sorted(results, key=lambda x: getattr(x, sort_by), reverse=descending)
         paginated_results = sorted_list[offset:limit]
         
-        # Mark default models
-        if section_name == 'ai':
-            self._mark_default_models(paginated_results, project_id)
-        
         return paginated_results
 
     @rpc('update_attrs')
@@ -656,57 +652,3 @@ class RPC:
                 integrations.append(integration)
 
         return integrations
-
-    def _mark_default_models(self, integrations: List[IntegrationPD], project_id: int):
-        """
-        Mark default models in integrations based on project secret 'default_model'.
-        If no secret is found, mark the first chat model as default.
-        """
-        # Parse default_model secret once
-        target_integration_id = None
-        target_model_id = None
-        
-        try:
-            # Get the default_model secret from vault
-            vault_client = VaultClient(project_id)
-            secrets = vault_client.get_all_secrets()
-            default_model_secret = secrets.get('default_model')
-            
-            # Parse the secret format: integration_id___model_id
-            if default_model_secret and '___' in default_model_secret:
-                parts = default_model_secret.split('___', 1)
-                if len(parts) == 2:
-                    target_integration_id = int(parts[0])
-                    target_model_id = parts[1]
-        except Exception as e:
-            log.debug(f'Could not retrieve or parse default_model secret for project {project_id}: {e}')
-        
-        for integration in integrations:
-            if hasattr(integration, 'settings') and integration.settings and 'models' in integration.settings:
-                models = integration.settings.get('models', [])
-                if not models:
-                    continue
-                
-                # Initialize all models with default=False
-                for model in models:
-                    if isinstance(model, dict):
-                        model['default'] = False
-                
-                default_model_set = False
-                
-                # If we have a target integration and model, try to match it
-                if target_integration_id == integration.id and target_model_id:
-                    # Find and mark the matching model as default
-                    for model in models:
-                        if isinstance(model, dict) and model.get('id') == target_model_id:
-                            model['default'] = True
-                            default_model_set = True
-                            break
-                
-                # If no default was set from secret, mark first chat model as default
-                if not default_model_set:
-                    for model in models:
-                        if (isinstance(model, dict) and 
-                            model.get('capabilities', {}).get('chat_completion', False)):
-                            model['default'] = True
-                            break
