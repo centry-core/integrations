@@ -74,7 +74,19 @@ class ProjectAPI(api_tools.APIModeHandler):
             if request.json.get('is_default'):
                 self.module.make_default_integration(db_integration, project_id)
             try:
-                return serialize(IntegrationPD.from_orm(db_integration)), 200
+                integration_data = serialize(IntegrationPD.from_orm(db_integration))
+                #
+                self.module.context.event_manager.fire_event(
+                    "integration_created",
+                    {
+                        "mode": "default",
+                        "project_id": project_id,
+                        "integration_name": integration_name,
+                        "integration_data": integration_data,
+                    }
+                )
+                #
+                return integration_data, 200
             except ValidationError as e:
                 return e.errors(), 400
 
@@ -238,7 +250,20 @@ class AdminAPI(api_tools.APIModeHandler):
             db_integration.insert(session)
             if request.json.get('is_default'):
                 db_integration.make_default(session)
-            return serialize(IntegrationPD.from_orm(db_integration)), 200
+            #
+            integration_data = serialize(IntegrationPD.from_orm(db_integration))
+            #
+            self.module.context.event_manager.fire_event(
+                "integration_created",
+                {
+                    "mode": "administration",
+                    "project_id": None,
+                    "integration_name": integration_name,
+                    "integration_data": integration_data,
+                }
+            )
+            #
+            return integration_data, 200
 
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.edit"],
