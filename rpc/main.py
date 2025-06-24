@@ -44,8 +44,16 @@ class RPC:
         return self.integrations
 
     @rpc('list_integrations_by_section')
-    def list_integrations_by_section(self, section: str) -> list:
-        return [k for k, v in self.integrations.items() if v.section == section]
+    def list_integrations_by_section(self, section: str = None) -> list:
+        if section:
+            return [k for k, v in self.integrations.items() if v.section == section]
+        return [k for k, v in self.integrations.items()]
+
+    @rpc('list_integrations_settings_by_section')
+    def list_integrations_settings_by_section(self, section: str = None) -> list:
+        if section:
+            return [v.settings_model.schema() for k, v in self.integrations.items() if v.section == section]
+        return [v.settings_model.schema() for k, v in self.integrations.items()]
 
     @rpc('get_project_integrations')
     def get_project_integrations(self, project_id: int, group_by_section: bool = True) -> dict:

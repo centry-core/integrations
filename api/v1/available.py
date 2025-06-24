@@ -1,6 +1,6 @@
 from flask import request
 
-from tools import auth, api_tools
+from tools import api_tools
 
 
 class ProjectAPI(api_tools.APIModeHandler):
@@ -26,9 +26,16 @@ class API(api_tools.APIBase):
 
     def get(self, **kwargs):
         section_filter = request.args.get('section')
+        if section_filter is None:
+            sections = [None,]
+        else:
+            sections = [s.strip() for s in section_filter.split(',')]
+        as_schema = bool(request.args.get('as_schema', 0, type=int))
+
         result = []
-        if section_filter:
-            for s in section_filter.split(','):
-                result.extend(self.module.list_integrations_by_section(s.strip()))
-            return result, 200
-        return list(self.module.list_integrations()), 200
+        for s in sections:
+            if not as_schema:
+                result.extend(self.module.list_integrations_by_section(s))
+            else:
+                result.extend(self.module.list_integrations_settings_by_section(s))
+        return result, 200
