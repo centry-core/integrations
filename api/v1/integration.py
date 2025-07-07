@@ -143,7 +143,20 @@ class ProjectAPI(api_tools.APIModeHandler):
                 }
             )
 
-            return serialize(IntegrationPD.from_orm(db_integration)), 200
+            integration_name = db_integration.name
+            integration_data = serialize(IntegrationPD.from_orm(db_integration))
+
+            self.module.context.event_manager.fire_event(
+                "integration_updated",
+                {
+                    "mode": "default",
+                    "project_id": project_id,
+                    "integration_name": integration_name,
+                    "integration_data": integration_data,
+                }
+            )
+
+            return integration_data, 200
 
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.edit"],
@@ -184,6 +197,19 @@ class ProjectAPI(api_tools.APIModeHandler):
             db_integration = tenant_session.query(IntegrationProject).filter(
                 IntegrationProject.id == integration_id).first()
             if db_integration:
+                integration_name = db_integration.name
+                integration_data = serialize(IntegrationPD.from_orm(db_integration))
+                #
+                self.module.context.event_manager.fire_event(
+                    "integration_deleted",
+                    {
+                        "mode": "default",
+                        "project_id": project_id,
+                        "integration_name": integration_name,
+                        "integration_data": integration_data,
+                    }
+                )
+                #
                 tenant_session.delete(db_integration)
                 tenant_session.commit()
                 self.module.delete_default_integration(db_integration, project_id)
@@ -318,7 +344,21 @@ class AdminAPI(api_tools.APIModeHandler):
                         "new_settings": new_settings
                     }
                 )
-            return serialize(IntegrationPD.from_orm(db_integration)), 200
+
+            integration_name = db_integration.name
+            integration_data = serialize(IntegrationPD.from_orm(db_integration))
+
+            self.module.context.event_manager.fire_event(
+                "integration_updated",
+                {
+                    "mode": "administration",
+                    "project_id": None,
+                    "integration_name": integration_name,
+                    "integration_data": integration_data,
+                }
+            )
+
+            return integration_data, 200
 
     @auth.decorators.check_api({
         "permissions": ["configuration.integrations.integrations.edit"],
@@ -348,6 +388,20 @@ class AdminAPI(api_tools.APIModeHandler):
     def delete(self, integration_id: int, **kwargs):
         with db.get_session() as session:
             db_integration = session.query(IntegrationAdmin).where(IntegrationAdmin.id == integration_id).first()
+            #
+            integration_name = db_integration.name
+            integration_data = serialize(IntegrationPD.from_orm(db_integration))
+            #
+            self.module.context.event_manager.fire_event(
+                "integration_deleted",
+                {
+                    "mode": "administration",
+                    "project_id": None,
+                    "integration_name": integration_name,
+                    "integration_data": integration_data,
+                }
+            )
+            #
             session.delete(db_integration)
             session.commit()
 
