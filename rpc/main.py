@@ -175,6 +175,7 @@ class RPC:
         :return: integration ORM object or None
         """
         integration_uid = str(integration_uid)
+        #
         if project_id is not None:
             with db.get_session(project_id) as tenant_session:
                 if integration := tenant_session.query(IntegrationProject).filter(
@@ -182,13 +183,29 @@ class RPC:
                 ).one_or_none():
                     integration.project_id = project_id
                     return integration
+        #
         with db.get_session() as session:
             if integration := session.query(IntegrationAdmin).where(
                     IntegrationAdmin.uid == integration_uid,
             ).first():
                 return integration
+        #
         if check_all_projects:
-            projects = self.context.rpc_manager.call.project_list()
+            all_projects = self.context.rpc_manager.call.project_list()
+            #
+            # hotfix some legacy behaviour by moving project-projects to the top
+            #
+            projects = []
+            personal_projects = []
+            #
+            for project in all_projects:
+                if project["name"].startswith("project_user_"):
+                    personal_projects.append(project)
+                else:
+                    projects.append(project)
+            #
+            projects.extend(personal_projects)
+            #
             for project in projects:
                 with db.get_session(project['id']) as tenant_session:
                     if integration := tenant_session.query(IntegrationProject).where(
@@ -466,7 +483,7 @@ class RPC:
         descending = sort_order.lower() == 'desc'
         sorted_list = sorted(results, key=lambda x: getattr(x, sort_by), reverse=descending)
         paginated_results = sorted_list[offset:limit]
-        
+
         return paginated_results
 
     @rpc('update_attrs')
