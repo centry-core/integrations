@@ -129,14 +129,25 @@ class ProjectAPI(api_tools.APIModeHandler):
             "developer": {"admin": True, "viewer": False, "editor": False},
         }})
     def get(self, project_id: int):
-        resp = get_project_integrations_api(
+        ret = resp = get_project_integrations_api(
             self=self.module,
             project_id=project_id,
             name=request.args.get('name'),
             section=request.args.get('section'),
             unsecret=bool(request.args.get('unsecret', False))
         )
-        return resp, 200
+        if query := request.args.get('query'):
+            ret = []
+            for integration in resp:
+                names = {
+                    integration.get('name') or '',
+                    integration.get('settings', {}).get('title') or '',
+                    integration.get('config', {}).get('name') or ''
+                }
+                if any(query in name for name in names):
+                    ret.append(integration)
+
+        return ret, 200
 
 
 class AdminAPI(api_tools.APIModeHandler):
